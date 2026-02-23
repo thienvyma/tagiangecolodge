@@ -1,0 +1,32 @@
+
+> ta-giang-ecolog@0.1.0 dev
+> next dev -p 3005
+
+  ▲ Next.js 14.2.5
+  - Local:        http://localhost:3005
+
+ ✓ Starting...
+ ✓ Ready in 18.4s
+ ○ Compiling / ...
+ ✓ Compiled / in 12s (602 modules)
+ GET / 200 in 12582ms
+ GET / 200 in 62ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 665ms (634 modules)
+ GET /admin 200 in 1505ms
+ ✓ Compiled /admin/Book ings in 362ms (632 modules)
+ ✓ Compiled /admin/rooms in 428ms (650 modules)
+ ✓ Compiled /admin/settings in 409ms (660 modules)
+ ✓ Compiled /admin/gallery in 456ms (670 modules)
+ GET / 200 in 97ms
+ GET / 200 in 98ms
+ GET / 200 in 71ms
+ GET / 200 in 71ms
+ GET / 200 in 64ms
+ GET / 200 in 59ms
+ ✓ Compiled /admin in 503ms (621 modules)
+ ✓ Compiled /_not-found in 484ms (624 modules)
+ GET /admin 404 in 1297ms
+ GET /admin 404 in 119ms
+ GET /admin 404 in 92ms
+ GET / 200 in 123ms
