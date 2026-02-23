@@ -6,58 +6,111 @@ import { useStore, type GalleryItem } from "@/lib/store";
 
 const CATEGORIES = ["Tổng hợp", "Phòng nghỉ", "Cảnh quan", "Ẩm thực", "Hoạt động", "Lễ hội"];
 
-function useImageUpload(onResult: (src: string) => void) {
+function useImageUpload(onResult: (srcs: string[]) => void) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const processFile = (file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = (e) => onResult(e.target?.result as string);
-    reader.readAsDataURL(file);
+  const processFiles = async (files: FileList | File[]) => {
+    setIsProcessing(true);
+    const validFiles = Array.from(files).filter(f => f.type.startsWith("image/"));
+    const results: string[] = [];
+
+    for (const file of validFiles) {
+      const src = await new Promise<string>((resolve) => {
+        const img = new window.Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const MAX_SIZE = 800; // Resize to max 800px
+
+          if (width > height && width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Export as WebP with 0.7 quality
+          resolve(canvas.toDataURL("image/webp", 0.7));
+        };
+        img.src = objectUrl;
+      });
+      results.push(src);
+    }
+
+    onResult(results);
+    setIsProcessing(false);
   };
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
+    if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
   }, []);
 
   const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragging(true); };
   const onDragLeave = () => setDragging(false);
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
+    if (e.target.files && e.target.files.length > 0) processFiles(e.target.files);
     e.target.value = "";
   };
 
-  return { inputRef, dragging, onDrop, onDragOver, onDragLeave, onFileChange };
+  return { inputRef, dragging, isProcessing, onDrop, onDragOver, onDragLeave, onFileChange };
 }
 
 export default function GalleryAdmin() {
-  const { gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem } = useStore();
+  const { gallery, addGalleryItem, addBulkGalleryItems, updateGalleryItem, deleteGalleryItem } = useStore();
   const [filterCat, setFilterCat] = useState("Tất cả");
   const [showAdd, setShowAdd] = useState(false);
   const [addTab, setAddTab] = useState<"upload" | "url">("upload");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAlt, setEditAlt] = useState("");
   const [editCat, setEditCat] = useState("");
-  const [newForm, setNewForm] = useState({ src: "", alt: "", category: CATEGORIES[0] });
+  const [newFormFiles, setNewFormFiles] = useState<{ src: string, alt: string, category: string }[]>([]);
+  const [newFormUrl, setNewFormUrl] = useState({ src: "", alt: "", category: CATEGORIES[0] });
   const [addError, setAddError] = useState("");
 
-  const { inputRef, dragging, onDrop, onDragOver, onDragLeave, onFileChange } = useImageUpload(
-    (src) => { setNewForm((f) => ({ ...f, src })); setAddError(""); }
+  const { inputRef, dragging, isProcessing, onDrop, onDragOver, onDragLeave, onFileChange } = useImageUpload(
+    (srcs) => {
+      const newItems = srcs.map(src => ({ src, alt: "", category: CATEGORIES[0] }));
+      setNewFormFiles(prev => [...prev, ...newItems]);
+      setAddError("");
+    }
   );
 
   const filtered = filterCat === "Tất cả" ? gallery : gallery.filter((g) => g.category === filterCat);
 
   const handleAdd = () => {
     setAddError("");
-    if (!newForm.src.trim()) { setAddError("Vui lòng chọn hoặc nhập URL ảnh"); return; }
-    if (!newForm.alt.trim()) { setAddError("Vui lòng nhập mô tả ảnh"); return; }
-    addGalleryItem(newForm);
-    setNewForm({ src: "", alt: "", category: CATEGORIES[0] });
+    if (addTab === "upload") {
+      if (newFormFiles.length === 0) { setAddError("Vui lòng chọn ảnh để tải lên"); return; }
+
+      // Map global alt/category if users didn't enter one individually (UX improvement)
+      const mappedItems = newFormFiles.map(f => ({
+        src: f.src,
+        alt: f.alt || newFormUrl.alt || "Ảnh tại Tà Giang",
+        category: f.category || newFormUrl.category || CATEGORIES[0]
+      }));
+
+      addBulkGalleryItems(mappedItems);
+      setNewFormFiles([]);
+    } else {
+      if (!newFormUrl.src.trim()) { setAddError("Vui lòng nhập URL ảnh"); return; }
+      if (!newFormUrl.alt.trim()) { setAddError("Vui lòng nhập mô tả ảnh"); return; }
+      addGalleryItem(newFormUrl);
+      setNewFormUrl({ src: "", alt: "", category: CATEGORIES[0] });
+    }
+
     setAddTab("upload");
     setShowAdd(false);
   };
@@ -65,7 +118,8 @@ export default function GalleryAdmin() {
   const closeModal = () => {
     setShowAdd(false);
     setAddError("");
-    setNewForm({ src: "", alt: "", category: CATEGORIES[0] });
+    setNewFormFiles([]);
+    setNewFormUrl({ src: "", alt: "", category: CATEGORIES[0] });
     setAddTab("upload");
   };
 
@@ -94,9 +148,8 @@ export default function GalleryAdmin() {
       <div className="flex flex-wrap gap-2 mb-6">
         {["Tất cả", ...CATEGORIES].map((cat) => (
           <button key={cat} onClick={() => setFilterCat(cat)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
-              filterCat === cat ? "bg-forest-600 text-white border-forest-600" : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
-            }`}>
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border ${filterCat === cat ? "bg-forest-600 text-white border-forest-600" : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
+              }`}>
             {cat}
             {cat !== "Tất cả" && (
               <span className="ml-1.5 text-xs opacity-70">({gallery.filter((g) => g.category === cat).length})</span>
@@ -172,28 +225,61 @@ export default function GalleryAdmin() {
 
               {addTab === "upload" ? (
                 <div>
-                  <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
-                  {newForm.src ? (
-                    <div className="relative h-48 rounded-xl overflow-hidden bg-stone-100 group">
-                      <Image src={newForm.src} alt="preview" fill className="object-cover" unoptimized />
-                      <button onClick={() => setNewForm((f) => ({ ...f, src: "" }))}
-                        className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                        <X className="w-4 h-4" />
+                  <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={onFileChange} />
+                  {newFormFiles.length > 0 ? (
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                      {newFormFiles.map((f, i) => (
+                        <div key={i} className="flex gap-3 bg-stone-50 p-2 rounded-xl border border-stone-100 relative group animate-in slide-in-from-bottom-2">
+                          <div className="relative w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-stone-200">
+                            <Image src={f.src} alt="preview" fill className="object-cover" unoptimized />
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <input value={f.alt} onChange={(e) => {
+                              const updated = [...newFormFiles];
+                              updated[i].alt = e.target.value;
+                              setNewFormFiles(updated);
+                            }}
+                              className="w-full border-b border-stone-200 bg-transparent px-1 py-1 text-xs focus:outline-none focus:border-forest-400"
+                              placeholder="Mô tả cho ảnh này" />
+
+                            <select value={f.category} onChange={(e) => {
+                              const updated = [...newFormFiles];
+                              updated[i].category = e.target.value;
+                              setNewFormFiles(updated);
+                            }}
+                              className="w-full bg-white border border-stone-200 rounded px-1 py-1 text-xs focus:outline-none focus:border-forest-400">
+                              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                            </select>
+                          </div>
+                          <button onClick={() => setNewFormFiles(prev => prev.filter((_, idx) => idx !== i))}
+                            className="absolute -top-2 -right-2 bg-white border border-stone-200 text-red-500 hover:bg-red-50 hover:border-red-200 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {isProcessing && (
+                        <div className="text-center text-xs text-stone-500 animate-pulse">Đang nén thêm ảnh...</div>
+                      )}
+
+                      <button onClick={() => inputRef.current?.click()} className="w-full py-3 rounded-xl border-2 border-dashed border-stone-200 text-stone-500 hover:border-forest-400 hover:text-forest-600 bg-white transition-colors text-sm font-medium">
+                        + Thêm ảnh khác
                       </button>
+
                     </div>
                   ) : (
                     <div
                       onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
-                      onClick={() => inputRef.current?.click()}
-                      className={`h-48 rounded-xl border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-3 transition-colors ${
-                        dragging ? "border-forest-500 bg-forest-50" : "border-stone-200 hover:border-forest-400 hover:bg-stone-50"
-                      }`}>
+                      onClick={() => !isProcessing && inputRef.current?.click()}
+                      className={`h-48 rounded-xl border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-3 transition-colors ${dragging ? "border-forest-500 bg-forest-50" : "border-stone-200 hover:border-forest-400 hover:bg-stone-50"} ${isProcessing ? "opacity-50 cursor-wait" : ""}`}>
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center ${dragging ? "bg-forest-100" : "bg-stone-100"}`}>
                         <ImageIcon className={`w-6 h-6 ${dragging ? "text-forest-600" : "text-stone-400"}`} />
                       </div>
                       <div className="text-center">
-                        <p className="text-sm font-medium text-stone-600">Kéo thả ảnh vào đây</p>
-                        <p className="text-xs text-stone-400 mt-0.5">hoặc click để chọn file · JPG, PNG, WebP</p>
+                        <p className="text-sm font-medium text-stone-600">
+                          {isProcessing ? "Đang xử lý và nén ảnh..." : "Kéo thả ảnh vào đây"}
+                        </p>
+                        <p className="text-xs text-stone-400 mt-0.5">hoặc click để chọn file · Có thể chọn nhiều ảnh</p>
                       </div>
                     </div>
                   )}
@@ -201,35 +287,39 @@ export default function GalleryAdmin() {
               ) : (
                 <div>
                   <label className="block text-sm font-medium text-stone-700 mb-1.5">URL ảnh *</label>
-                  <input value={newForm.src} onChange={(e) => setNewForm({ ...newForm, src: e.target.value })}
+                  <input value={newFormUrl.src} onChange={(e) => setNewFormUrl({ ...newFormUrl, src: e.target.value })}
                     className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
                     placeholder="https://images.unsplash.com/..." />
-                  {newForm.src && (
+                  {newFormUrl.src && (
                     <div className="relative h-40 rounded-xl overflow-hidden bg-stone-100 mt-3">
-                      <Image src={newForm.src} alt="preview" fill className="object-cover" onError={() => setAddError("URL ảnh không hợp lệ")} />
+                      <Image src={newFormUrl.src} alt="preview" fill className="object-cover" onError={() => setAddError("URL ảnh không hợp lệ")} />
                     </div>
                   )}
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1.5">Mô tả ảnh *</label>
-                <input value={newForm.alt} onChange={(e) => setNewForm({ ...newForm, alt: e.target.value })}
-                  className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
-                  placeholder="Cảnh hoàng hôn cao nguyên đá" />
-              </div>
+              {addTab === "url" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1.5">Mô tả ảnh *</label>
+                    <input value={newFormUrl.alt} onChange={(e) => setNewFormUrl({ ...newFormUrl, alt: e.target.value })}
+                      className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
+                      placeholder="Cảnh hoàng hôn cao nguyên đá" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1.5">Danh mục</label>
-                <select value={newForm.category} onChange={(e) => setNewForm({ ...newForm, category: e.target.value })}
-                  className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400">
-                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1.5">Danh mục</label>
+                    <select value={newFormUrl.category} onChange={(e) => setNewFormUrl({ ...newFormUrl, category: e.target.value })}
+                      className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400">
+                      {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex gap-3 px-6 py-5 border-t border-stone-100">
-              <button onClick={handleAdd} disabled={!newForm.src} className="btn-primary flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={handleAdd} disabled={addTab === "upload" ? newFormFiles.length === 0 : !newFormUrl.src} className="btn-primary flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                 <Plus className="w-4 h-4" /> Thêm vào thư viện
               </button>
               <button onClick={closeModal} className="flex-1 border border-stone-200 text-stone-600 hover:bg-stone-50 font-medium px-4 py-2.5 rounded-lg text-sm transition-colors">

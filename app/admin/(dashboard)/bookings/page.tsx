@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
-import { Search, CheckCircle, XCircle, Trash2, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, CheckCircle, XCircle, Trash2, Clock, RefreshCw } from "lucide-react";
 import clsx from "clsx";
-import { useStore, type Booking } from "@/lib/store";
+import type { Booking } from "@/lib/store";
+import { getSupabase } from "@/lib/supabase";
 
 const STATUS_STYLES: Record<Booking["status"], string> = {
   confirmed: "bg-emerald-50 text-emerald-700",
@@ -15,10 +16,77 @@ const STATUS_LABELS: Record<Booking["status"], string> = {
   cancelled: "Đã hủy",
 };
 
-export default function bookingsAdmin() {
-  const { bookings, updateBookingStatus, deleteBooking } = useStore();
+export default function BookingsAdmin() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Booking["status"] | "all">("all");
+
+  // Use state to force re-fetches
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    async function fetchBookings() {
+      try {
+        setLoading(true);
+        const supabase = getSupabase();
+        const { data, error } = await supabase
+          .from("bookings")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        // Map snake_case to camelCase
+        const mappedBookings: Booking[] = (data || []).map(b => ({
+          id: b.id,
+          guest: b.guest,
+          email: b.email,
+          phone: b.phone,
+          roomId: b.room_id,
+          roomName: b.room_name,
+          checkin: b.checkin,
+          checkout: b.checkout,
+          guests: b.guests,
+          message: b.message,
+          total: Number(b.total),
+          status: b.status as Booking["status"],
+          createdAt: b.created_at,
+        }));
+        setBookings(mappedBookings);
+      } catch (err) {
+        console.error("Lỗi tải bookings:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchBookings();
+  }, [refreshKey]);
+
+  const updateBookingStatus = async (id: string, status: Booking["status"]) => {
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+      if (error) throw error;
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      console.error("Lỗi cập nhật:", err);
+      alert("Cập nhật thất bại!");
+    }
+  };
+
+  const deleteBooking = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa đơn đặt phòng này?")) return;
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.from("bookings").delete().eq("id", id);
+      if (error) throw error;
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      console.error("Lỗi xóa:", err);
+      alert("Xóa thất bại!");
+    }
+  };
 
   const filtered = bookings.filter((b) => {
     const matchSearch =
@@ -39,9 +107,17 @@ export default function bookingsAdmin() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-stone-800">Đặt phòng</h1>
-        <p className="text-stone-500 mt-1">{bookings.length} đơn tổng cộng</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-stone-800">Đặt phòng</h1>
+          <p className="text-stone-500 mt-1">{bookings.length} đơn tổng cộng</p>
+        </div>
+        <button
+          onClick={() => setRefreshKey(k => k + 1)}
+          className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-50 transition-colors"
+        >
+          <RefreshCw className={clsx("w-4 h-4", loading && "animate-spin")} /> Mới nhất
+        </button>
       </div>
 
       {/* Stats */}
@@ -80,7 +156,12 @@ export default function bookingsAdmin() {
       </div>
 
       {/* Table */}
-      {filtered.length === 0 ? (
+      {loading && bookings.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-16 text-center">
+          <RefreshCw className="w-10 h-10 text-stone-300 mx-auto mb-3 animate-spin" />
+          <p className="text-stone-500">Đang tải dữ liệu...</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-16 text-center">
           <Clock className="w-10 h-10 text-stone-300 mx-auto mb-3" />
           <p className="text-stone-500">

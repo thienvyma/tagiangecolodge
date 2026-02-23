@@ -277,7 +277,7 @@ function ContactTab() {
       <Field label="Số điện thoại"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" placeholder="+84 xxx xxx xxx" /></Field>
       <Field label="Email"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input" /></Field>
       <Field label="Địa chỉ"><textarea rows={2} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="input resize-none" /></Field>
-      <Field label="URL Google Maps"><input value={form.mapUrl} onChange={(e) => setForm({ ...form, mapUrl: e.target.value })} className="input" placeholder="https://maps.google.com/..." /></Field>
+      <Field label="URL / Mã nhúng Google Maps (Iframe)"><textarea rows={3} value={form.mapUrl} onChange={(e) => setForm({ ...form, mapUrl: e.target.value })} className="input resize-none" placeholder='<iframe src="https://www.google.com/maps/embed?..." ...></iframe>' /></Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="FaceBook "><input value={form.facebook} onChange={(e) => setForm({ ...form, facebook: e.target.value })} className="input" /></Field>
         <Field label="Instagram"><input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} className="input" /></Field>

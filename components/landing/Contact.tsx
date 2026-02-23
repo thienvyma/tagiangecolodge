@@ -129,6 +129,20 @@ export default function Contact() {
               </div>
             </li>
           </ul>
+          {settings.mapUrl && (
+            <div className="mt-10 rounded-2xl overflow-hidden shadow-sm border border-stone-100 h-64 relative">
+              <iframe
+                src={settings.mapUrl.includes("<iframe") ? settings.mapUrl.match(/src="([^"]+)"/)?.[1] : settings.mapUrl}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="absolute inset-0"
+              />
+            </div>
+          )}
         </div>
 
         {/* Form */}

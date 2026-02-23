@@ -7,6 +7,13 @@ export const SITE = {
   mapUrl: "https://maps.google.com",
   facebook: "https://facebook.com",
   instagram: "https://instagram.com",
+  footer: {
+    description: "Trải nghiệm thiên nhiên hoang sơ",
+    address: "Tà Giang, Hà Giang",
+    phone: "+84 123 456 789",
+    email: "hello@tagiang.com",
+    socials: { facebook: "", instagram: "" }
+  }
 };
 
 export const ROOMS = [

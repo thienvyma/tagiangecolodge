@@ -1,21 +1,78 @@
 "use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Clock, Tag, ArrowRight } from "lucide-react";
+import { Clock, Tag, ArrowRight, RefreshCw } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import { useStore } from "@/lib/store";
+import type { BlogPost } from "@/lib/blog";
+import { getSupabase } from "@/lib/supabase";
 
 export default function BlogPage() {
-  const posts = useStore((s) => s.posts);
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
   const blogCategories = useStore((s) => s.blogCategories);
+
+  useEffect(() => {
+    async function fetchPosts() {
+      try {
+        const supabase = getSupabase();
+        const { data, error } = await supabase
+          .from("posts")
+          .select("*")
+          .order("published_at", { ascending: false });
+
+        if (error) throw error;
+
+        // Map snake_case to camelCase
+        const mappedPosts: BlogPost[] = (data || []).map((p) => ({
+          id: p.id,
+          slug: p.slug,
+          title: p.title,
+          excerpt: p.excerpt,
+          content: p.content,
+          coverImage: p.cover_image,
+          category: p.category,
+          tags: p.tags || [],
+          author: p.author,
+          publishedAt: p.published_at,
+          readTime: p.read_time,
+          featured: p.featured,
+          seo: {
+            metaTitle: p.seo_meta_title,
+            metaDescription: p.seo_meta_description,
+            focusKeyword: p.seo_focus_keyword,
+          },
+        }));
+        setPosts(mappedPosts);
+      } catch (err) {
+        console.error("Lỗi tải blog:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPosts();
+  }, []);
+
   const featured = posts.find((p) => p.featured) ?? posts[0];
   const rest = posts.filter((p) => p.id !== featured?.id);
+
+  if (loading) return (
+    <>
+      <Navbar />
+      <main className="pt-20 min-h-screen bg-cream flex flex-col items-center justify-center">
+        <RefreshCw className="w-10 h-10 text-forest-300 animate-spin mb-4" />
+        <p className="text-stone-400">Đang tải bài viết...</p>
+      </main>
+      <Footer />
+    </>
+  );
 
   if (!featured) return (
     <>
       <Navbar />
-      <main className="pt-20 min-h-screen bg-cream flex items-center justify-center">
+      <main className="pt-20 min-h-screen bg-cream flex flex-col items-center justify-center">
         <p className="text-stone-400">Chưa có bài viết nào.</p>
       </main>
       <Footer />

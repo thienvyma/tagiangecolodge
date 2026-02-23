@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
+import StoreInitializer from "@/components/StoreInitializer";
 
 export const metadata: Metadata = {
   title: "Tà Giang Ecolog – Homestay Sinh Thái Hà Giang",
@@ -17,9 +18,9 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
+        <StoreInitializer />
         <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
   );
 }
-

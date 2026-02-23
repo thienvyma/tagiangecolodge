@@ -1,19 +1,94 @@
 "use client";
+import { useState, useEffect } from "react";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Clock, Tag, ArrowLeft, ArrowRight } from "lucide-react";
+import { Clock, Tag, ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
-import { useStore } from "@/lib/store";
+import type { BlogPost } from "@/lib/blog";
+import { getSupabase } from "@/lib/supabase";
 
 export default function BlogPostPage({ params }: { params: { slug: string } }) {
-  const posts = useStore((s) => s.posts);
-  const post = posts.find((p) => p.slug === params.slug);
+  const [post, setPost] = useState<BlogPost | null>(null);
+  const [related, setRelated] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  if (!post) return notFound();
+  useEffect(() => {
+    async function fetchPost() {
+      try {
+        const supabase = getSupabase();
 
-  const related = posts.filter((p) => p.id !== post.id).slice(0, 2);
+        // Fetch current post
+        const { data: postData, error: postError } = await supabase
+          .from("posts")
+          .select("*")
+          .eq("slug", params.slug)
+          .single();
+
+        if (postError) throw postError;
+
+        const mappedPost: BlogPost = {
+          id: postData.id,
+          slug: postData.slug,
+          title: postData.title,
+          excerpt: postData.excerpt,
+          content: postData.content,
+          coverImage: postData.cover_image,
+          category: postData.category,
+          tags: postData.tags || [],
+          author: postData.author,
+          publishedAt: postData.published_at,
+          readTime: postData.read_time,
+          featured: postData.featured,
+          seo: {
+            metaTitle: postData.seo_meta_title,
+            metaDescription: postData.seo_meta_description,
+            focusKeyword: postData.seo_focus_keyword,
+          }
+        };
+        setPost(mappedPost);
+
+        // Fetch related
+        const { data: relatedData } = await supabase
+          .from("posts")
+          .select("*")
+          .neq("id", postData.id)
+          .limit(2)
+          .order("published_at", { ascending: false });
+
+        if (relatedData) {
+          setRelated(relatedData.map(r => ({
+            ...r,
+            coverImage: r.cover_image,
+            readTime: r.read_time,
+            seo: {}
+          })) as BlogPost[]);
+        }
+
+      } catch (err) {
+        console.error("Lỗi tải bài viết:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPost();
+  }, [params.slug]);
+
+  if (loading) return (
+    <>
+      <Navbar />
+      <main className="pt-20 min-h-screen bg-cream flex flex-col items-center justify-center">
+        <RefreshCw className="w-10 h-10 text-forest-300 animate-spin mb-4" />
+        <p className="text-stone-400">Đang tải bài viết...</p>
+      </main>
+      <Footer />
+    </>
+  );
+
+  if (error || !post) return notFound();
 
   return (
     <>

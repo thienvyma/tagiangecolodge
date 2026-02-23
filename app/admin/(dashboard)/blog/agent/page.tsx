@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Bot, Settings2, Sparkles, Copy, Check, Save, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Search, Zap } from "lucide-react";
 import { DEFAULT_AGENT_CONFIG, type AgentConfig } from "@/lib/blog";
 import { useStore } from "@/lib/store";
-
+import { getSupabase } from "@/lib/supabase";
 const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"];
 
 const PROMPT_TEMPLATES = [
@@ -76,16 +76,36 @@ export default function BlogAgentPage() {
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
 
-  const saveToManager = () => {
+  const saveToManager = async () => {
     if (!result) return;
-    const slug = result.title.toLowerCase().normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
-    addPost({
-      slug, title: result.title, excerpt: result.excerpt, content: result.content,
-      coverImage: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
-      category, tags: result.tags ?? [], author: "Ta Giang Ecolog", featured: false, seo: result.seo
-    });
-    alert("Da luu bai vao Blog Manager!");
+    try {
+      const slug = result.title.toLowerCase().normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+
+      const postData = {
+        slug,
+        title: result.title,
+        excerpt: result.excerpt,
+        content: result.content,
+        cover_image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
+        category,
+        tags: result.tags ?? [],
+        author: "Tà Giang Ecolog",
+        featured: false,
+        seo_meta_title: result.seo.metaTitle,
+        seo_meta_description: result.seo.metaDescription,
+        seo_focus_keyword: result.seo.focusKeyword
+      };
+
+      const supabase = getSupabase();
+      const { error } = await supabase.from("posts").insert([postData]);
+      if (error) throw error;
+
+      alert("Đã lưu bài viết vào Blog Manager thành công (Supabase)!");
+    } catch (err) {
+      console.error("Lỗi lưu:", err);
+      alert("Lưu thất bại!");
+    }
   };
 
   return (

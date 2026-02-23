@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { getSupabase } from "@/lib/supabase";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -197,7 +198,31 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        return NextResponse.json({ ok: true, bookingId, total });
+        // ── Save to database ──────────────────────────────────────────────────
+        let savedToDb = true;
+        try {
+            const supabase = getSupabase();
+            const { error: dbError } = await supabase.from("bookings").insert({
+                id: bookingId,
+                guest,
+                email: email ?? "",
+                phone,
+                room_id: roomId || 0,
+                room_name: roomName,
+                checkin,
+                checkout,
+                guests: Number(guests),
+                message: message ?? "",
+                total,
+                status: "pending"
+            });
+            if (dbError) throw dbError;
+        } catch (dbErr) {
+            console.error("[supabase error]", dbErr);
+            savedToDb = false;
+        }
+
+        return NextResponse.json({ ok: true, bookingId, total, savedToDb });
     } catch (err: unknown) {
         console.error("[booking api]", err);
         const msg = err instanceof Error ? err.message : "Server error";
