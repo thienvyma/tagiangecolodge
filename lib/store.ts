@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { ROOMS as INITIAL_ROOMS, GALLERY_IMAGES as INITIAL_GALLERY, SITE as INITIAL_SITE, AMENITIES as INITIAL_AMENITIES, TESTIMONIALS as INITIAL_TESTIMONIALS } from "./data";
 import { MOCK_POSTS, DEFAULT_BLOG_CATEGORIES } from "./blog";
 import type { BlogPost } from "./blog";
@@ -95,10 +94,10 @@ export type TestimonialItem = {
 export type FloatingCTAButton = {
   id: string;
   label: string;
-  icon: string;       // emoji hoặc tên icon
+  icon: string;
   type: "phone" | "zalo" | "facebook" | "scroll" | "link";
-  value: string;      // số điện thoại, URL, hoặc section id
-  color: string;      // tailwind bg class
+  value: string;
+  color: string;
   enabled: boolean;
 };
 
@@ -124,6 +123,7 @@ export type FooterContent = {
 
 export type Store = {
   initStore: () => Promise<void>;
+
   // Rooms
   rooms: Room[];
   addRoom: (room: Omit<Room, "id">) => void;
@@ -188,18 +188,24 @@ const initialGallery: GalleryItem[] = INITIAL_GALLERY.map((g, i) => ({
   category: "Tổng hợp",
 }));
 
+// ─── Save ALL relevant state to Supabase ──────────────────────────────────────
 const saveToSupabase = async (state: Partial<Store>) => {
   try {
-    const payload = {
-      gallery: state.gallery,
-      settings: state.settings,
-      hero: state.hero,
-      about: state.about,
-      amenities: state.amenities,
-      testimonials: state.testimonials,
-      footer: state.footer,
-      floatingCTA: state.floatingCTA
-    };
+    const payload: Record<string, unknown> = {};
+
+    // Include every piece of state that should be persisted
+    if (state.rooms !== undefined) payload.rooms = state.rooms;
+    if (state.bookings !== undefined) payload.bookings = state.bookings;
+    if (state.gallery !== undefined) payload.gallery = state.gallery;
+    if (state.posts !== undefined) payload.posts = state.posts;
+    if (state.blogCategories !== undefined) payload.blogCategories = state.blogCategories;
+    if (state.settings !== undefined) payload.settings = state.settings;
+    if (state.hero !== undefined) payload.hero = state.hero;
+    if (state.about !== undefined) payload.about = state.about;
+    if (state.amenities !== undefined) payload.amenities = state.amenities;
+    if (state.testimonials !== undefined) payload.testimonials = state.testimonials;
+    if (state.footer !== undefined) payload.footer = state.footer;
+    if (state.floatingCTA !== undefined) payload.floatingCTA = state.floatingCTA;
 
     await fetch('/api/site-data', {
       method: 'POST',
@@ -226,14 +232,30 @@ export const useStore = create<Store>()(
         console.error("Failed to load initial site data", e);
       }
     },
+
     // ── Rooms ──
     rooms: initialRooms,
-    addRoom: (room) =>
-      set((s) => ({ rooms: [...s.rooms, { ...room, id: Date.now() }] })),
-    updateRoom: (id, data) =>
-      set((s) => ({ rooms: s.rooms.map((r) => (r.id === id ? { ...r, ...data } : r)) })),
-    deleteRoom: (id) =>
-      set((s) => ({ rooms: s.rooms.filter((r) => r.id !== id) })),
+    addRoom: (room) => {
+      set((s) => {
+        const next = { rooms: [...s.rooms, { ...room, id: Date.now() }] };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    updateRoom: (id, data) => {
+      set((s) => {
+        const next = { rooms: s.rooms.map((r) => (r.id === id ? { ...r, ...data } : r)) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    deleteRoom: (id) => {
+      set((s) => {
+        const next = { rooms: s.rooms.filter((r) => r.id !== id) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
 
     // ── Bookings ──
     bookings: [],
@@ -243,17 +265,31 @@ export const useStore = create<Store>()(
       const nights =
         (new Date(booking.checkout).getTime() - new Date(booking.checkin).getTime()) / 86400000;
       const total = Math.max(1, nights) * room.price;
-      set((s) => ({
-        bookings: [
-          { ...booking, id: `BK${Date.now()}`, status: "pending", total, createdAt: new Date().toISOString() },
-          ...s.bookings,
-        ],
-      }));
+      set((s) => {
+        const next = {
+          bookings: [
+            { ...booking, id: `BK${Date.now()}`, status: "pending" as const, total, createdAt: new Date().toISOString() },
+            ...s.bookings,
+          ],
+        };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
     },
-    updateBookingStatus: (id, status) =>
-      set((s) => ({ bookings: s.bookings.map((b) => (b.id === id ? { ...b, status } : b)) })),
-    deleteBooking: (id) =>
-      set((s) => ({ bookings: s.bookings.filter((b) => b.id !== id) })),
+    updateBookingStatus: (id, status) => {
+      set((s) => {
+        const next = { bookings: s.bookings.map((b) => (b.id === id ? { ...b, status } : b)) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    deleteBooking: (id) => {
+      set((s) => {
+        const next = { bookings: s.bookings.filter((b) => b.id !== id) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
 
     // ── Gallery ──
     gallery: initialGallery,
@@ -298,29 +334,58 @@ export const useStore = create<Store>()(
     posts: MOCK_POSTS,
     addPost: (post) => {
       const words = post.content.split(" ").length;
-      set((s) => ({
-        posts: [
-          {
-            ...post,
-            id: Date.now().toString(),
-            publishedAt: new Date().toISOString().split("T")[0],
-            readTime: Math.max(1, Math.ceil(words / 200)),
-          },
-          ...s.posts,
-        ],
-      }));
+      set((s) => {
+        const next = {
+          posts: [
+            {
+              ...post,
+              id: Date.now().toString(),
+              publishedAt: new Date().toISOString().split("T")[0],
+              readTime: Math.max(1, Math.ceil(words / 200)),
+            },
+            ...s.posts,
+          ],
+        };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
     },
-    updatePost: (id, data) =>
-      set((s) => ({ posts: s.posts.map((p) => (p.id === id ? { ...p, ...data } : p)) })),
-    deletePost: (id) =>
-      set((s) => ({ posts: s.posts.filter((p) => p.id !== id) })),
-    setFeaturedPost: (id) =>
-      set((s) => ({ posts: s.posts.map((p) => ({ ...p, featured: p.id === id })) })),
+    updatePost: (id, data) => {
+      set((s) => {
+        const next = { posts: s.posts.map((p) => (p.id === id ? { ...p, ...data } : p)) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    deletePost: (id) => {
+      set((s) => {
+        const next = { posts: s.posts.filter((p) => p.id !== id) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    setFeaturedPost: (id) => {
+      set((s) => {
+        const next = { posts: s.posts.map((p) => ({ ...p, featured: p.id === id })) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
     blogCategories: DEFAULT_BLOG_CATEGORIES,
-    addBlogCategory: (name) =>
-      set((s) => ({ blogCategories: s.blogCategories.includes(name) ? s.blogCategories : [...s.blogCategories, name] })),
-    deleteBlogCategory: (name) =>
-      set((s) => ({ blogCategories: s.blogCategories.filter((c) => c !== name) })),
+    addBlogCategory: (name) => {
+      set((s) => {
+        const next = { blogCategories: s.blogCategories.includes(name) ? s.blogCategories : [...s.blogCategories, name] };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    deleteBlogCategory: (name) => {
+      set((s) => {
+        const next = { blogCategories: s.blogCategories.filter((c) => c !== name) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
 
     // ── Settings ──
     settings: { ...INITIAL_SITE },
@@ -377,22 +442,53 @@ export const useStore = create<Store>()(
 
     // ── Amenities ──
     amenities: INITIAL_AMENITIES.map((a, i) => ({ ...a, id: `am${i + 1}` })),
-    addAmenity: (item) =>
-      set((s) => ({ amenities: [...s.amenities, { ...item, id: `am${Date.now()}` }] })),
-    updateAmenity: (id, data) =>
-      set((s) => ({ amenities: s.amenities.map((a) => (a.id === id ? { ...a, ...data } : a)) })),
-    deleteAmenity: (id) =>
-      set((s) => ({ amenities: s.amenities.filter((a) => a.id !== id) })),
+    addAmenity: (item) => {
+      set((s) => {
+        const next = { amenities: [...s.amenities, { ...item, id: `am${Date.now()}` }] };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    updateAmenity: (id, data) => {
+      set((s) => {
+        const next = { amenities: s.amenities.map((a) => (a.id === id ? { ...a, ...data } : a)) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    deleteAmenity: (id) => {
+      set((s) => {
+        const next = { amenities: s.amenities.filter((a) => a.id !== id) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
 
     // ── Testimonials ──
     testimonials: INITIAL_TESTIMONIALS.map((t, i) => ({ ...t, id: `tm${i + 1}` })),
-    addTestimonial: (item) =>
-      set((s) => ({ testimonials: [...s.testimonials, { ...item, id: `tm${Date.now()}` }] })),
-    updateTestimonial: (id, data) =>
-      set((s) => ({ testimonials: s.testimonials.map((t) => (t.id === id ? { ...t, ...data } : t)) })),
-    deleteTestimonial: (id) =>
-      set((s) => ({ testimonials: s.testimonials.filter((t) => t.id !== id) })),
+    addTestimonial: (item) => {
+      set((s) => {
+        const next = { testimonials: [...s.testimonials, { ...item, id: `tm${Date.now()}` }] };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    updateTestimonial: (id, data) => {
+      set((s) => {
+        const next = { testimonials: s.testimonials.map((t) => (t.id === id ? { ...t, ...data } : t)) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+    deleteTestimonial: (id) => {
+      set((s) => {
+        const next = { testimonials: s.testimonials.filter((t) => t.id !== id) };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
 
+    // ── Footer ──
     footer: INITIAL_SITE.footer || {
       description: "Trải nghiệm thiên nhiên hoang sơ",
       address: "Tà Giang, Hà Giang",
