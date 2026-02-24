@@ -4,35 +4,29 @@ export function useImageUpload(onResult: (src: string) => void) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const processFile = useCallback((file: File) => {
+  const processFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) return;
 
-    const img = new window.Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const canvas = document.createElement("canvas");
-      let width = img.width;
-      let height = img.height;
-      const MAX_SIZE = 800; // Resize to max 800px
+    // Opt-in for a simpler visual fallback in extreme cases, but here we just upload directly:
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
 
-      if (width > height && width > MAX_SIZE) {
-        height *= MAX_SIZE / width;
-        width = MAX_SIZE;
-      } else if (height > MAX_SIZE) {
-        width *= MAX_SIZE / height;
-        height = MAX_SIZE;
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error('Upload failed');
       }
 
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx?.drawImage(img, 0, 0, width, height);
-
-      const compressedDataUrl = canvas.toDataURL("image/webp", 0.7);
-      onResult(compressedDataUrl);
-    };
-    img.src = objectUrl;
+      const data = await res.json();
+      onResult(data.url);
+    } catch (err) {
+      console.error("Image upload failed:", err);
+      alert("Có lỗi xảy ra khi tải ảnh lên. Vui lòng thử lại.");
+    }
   }, [onResult]);
 
   const onDrop = useCallback((e: React.DragEvent) => {

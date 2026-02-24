@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
+    // Instantiate inside the handler to prevent build-time crashes if env is missing
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
     const { data, error } = await supabase.from('site_data').select('*');
 
     // Auto-init the table on first run by executing a SQL function (if defined) or just returning empty
@@ -29,6 +32,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
         const body = await request.json();
 
         // Convert state object to array of {key, value} for upsert

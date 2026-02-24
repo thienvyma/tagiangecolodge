@@ -17,38 +17,25 @@ function useImageUpload(onResult: (srcs: string[]) => void) {
     const results: string[] = [];
 
     for (const file of validFiles) {
-      const src = await new Promise<string>((resolve) => {
-        const img = new window.Image();
-        const objectUrl = URL.createObjectURL(file);
-        img.onload = () => {
-          URL.revokeObjectURL(objectUrl);
-          const canvas = document.createElement("canvas");
-          let width = img.width;
-          let height = img.height;
-          const MAX_SIZE = 800; // Resize to max 800px
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
 
-          if (width > height && width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          } else if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
 
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, width, height);
+        if (!res.ok) throw new Error('Upload failed');
 
-          // Export as WebP with 0.7 quality
-          resolve(canvas.toDataURL("image/webp", 0.7));
-        };
-        img.src = objectUrl;
-      });
-      results.push(src);
+        const data = await res.json();
+        results.push(data.url);
+      } catch (err) {
+        console.error("Image upload failed:", err);
+      }
     }
 
-    onResult(results);
+    if (results.length > 0) onResult(results);
     setIsProcessing(false);
   };
 
