@@ -118,6 +118,15 @@ export type FooterContent = {
   };
 };
 
+export type TrackingPixels = {
+  gaId: string;           // Google Analytics GA4: G-XXXXXXXXXX
+  gtmId: string;          // Google Tag Manager: GTM-XXXXXXX
+  gadsId: string;         // Google Ads: AW-XXXXXXXXXX
+  fbPixelId: string;      // Facebook Pixel: 123456789
+  tiktokPixelId: string;  // TikTok Pixel: XXXXXXXXXX
+  customHeadCode: string; // Custom <head> code
+};
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export type Store = {
@@ -164,9 +173,9 @@ export type Store = {
   footer: FooterContent;
   updateFooter: (data: Partial<FooterContent>) => void;
 
-  // Google Analytics
-  gaId: string;
-  updateGaId: (id: string) => void;
+  // Tracking Pixels
+  trackingPixels: TrackingPixels;
+  updateTrackingPixels: (data: Partial<TrackingPixels>) => void;
 
   // Floating CTA
   floatingCTA: FloatingCTA;
@@ -196,7 +205,7 @@ const saveToSupabase = async (state: Partial<Store>) => {
     if (state.testimonials !== undefined) payload.testimonials = state.testimonials;
     if (state.footer !== undefined) payload.footer = state.footer;
     if (state.floatingCTA !== undefined) payload.floatingCTA = state.floatingCTA;
-    if (state.gaId !== undefined) payload.gaId = state.gaId;
+    if (state.trackingPixels !== undefined) payload.trackingPixels = state.trackingPixels;
 
     await fetch('/api/site-data', {
       method: 'POST',
@@ -217,7 +226,7 @@ export const useStore = create<Store>()(
         if (res.ok) {
           const data = await res.json();
           if (data.error) { console.warn("site-data error:", data.error); set({ _hydrated: true }); return; }
-          const storeKeys = ["rooms", "gallery", "blogCategories", "settings", "hero", "about", "amenities", "testimonials", "footer", "floatingCTA", "gaId"];
+          const storeKeys = ["rooms", "gallery", "blogCategories", "settings", "hero", "about", "amenities", "testimonials", "footer", "floatingCTA", "trackingPixels"];
           const validData = Object.fromEntries(
             Object.entries(data).filter(([k, v]) => storeKeys.includes(k) && v != null)
           );
@@ -435,11 +444,11 @@ export const useStore = create<Store>()(
       });
     },
 
-    // ── Google Analytics ──
-    gaId: "",
-    updateGaId: (id) => {
+    // ── Tracking Pixels ──
+    trackingPixels: { gaId: "", gtmId: "", gadsId: "", fbPixelId: "", tiktokPixelId: "", customHeadCode: "" },
+    updateTrackingPixels: (data) => {
       set((s) => {
-        const next = { gaId: id };
+        const next = { trackingPixels: { ...s.trackingPixels, ...data } };
         saveToSupabase({ ...s, ...next });
         return next;
       });

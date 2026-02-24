@@ -1,16 +1,17 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Save, KeyRound, Eye, EyeOff, RotateCcw, BarChart3 } from "lucide-react";
+import { Save, KeyRound, Eye, EyeOff, RotateCcw, BarChart3, Code } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { SITE } from "@/lib/data";
+import type { TrackingPixels } from "@/lib/store";
 
 export default function SettingsAdmin() {
-  const { settings, updateSettings, gaId, updateGaId } = useStore();
+  const { settings, updateSettings, trackingPixels, updateTrackingPixels } = useStore();
   const [form, setForm] = useState({ ...settings });
-  const [gaForm, setGaForm] = useState(gaId);
+  const [tpForm, setTpForm] = useState<TrackingPixels>({ ...trackingPixels });
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => { setGaForm(gaId); }, [gaId]);
+  useEffect(() => { setTpForm({ ...trackingPixels }); }, [trackingPixels]);
 
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false });
@@ -31,12 +32,15 @@ export default function SettingsAdmin() {
     }
   };
 
-  const [gaSaved, setGaSaved] = useState(false);
-  const handleGaSave = (e: React.FormEvent) => {
+  const [tpSaved, setTpSaved] = useState(false);
+  const handleTpSave = (e: React.FormEvent) => {
     e.preventDefault();
-    updateGaId(gaForm.trim());
-    setGaSaved(true);
-    setTimeout(() => setGaSaved(false), 2500);
+    const trimmed = Object.fromEntries(
+      Object.entries(tpForm).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])
+    ) as TrackingPixels;
+    updateTrackingPixels(trimmed);
+    setTpSaved(true);
+    setTimeout(() => setTpSaved(false), 2500);
   };
 
   const handlePasswordChange = (e: React.FormEvent) => {
@@ -120,29 +124,49 @@ export default function SettingsAdmin() {
         </div>
       </form>
 
-      {/* Google Analytics */}
-      <form onSubmit={handleGaSave} className="max-w-2xl mt-8">
+      {/* Tracking Pixels & Analytics */}
+      <form onSubmit={handleTpSave} className="max-w-2xl mt-8">
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 space-y-5">
           <div className="flex items-center gap-3 pb-3 border-b border-stone-100">
             <div className="w-8 h-8 bg-forest-100 rounded-lg flex items-center justify-center">
               <BarChart3 className="w-4 h-4 text-forest-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-stone-800">Google Analytics</h2>
-              <p className="text-xs text-stone-400">Theo dõi lượt truy cập website</p>
+              <h2 className="font-semibold text-stone-800">Tracking & Analytics</h2>
+              <p className="text-xs text-stone-400">Quản lý mã theo dõi cho tất cả nền tảng</p>
             </div>
           </div>
-          {gaSaved && <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm px-4 py-3 rounded-lg">Đã lưu Google Analytics ID!</div>}
+          {tpSaved && <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm px-4 py-3 rounded-lg">Đã lưu cấu hình tracking!</div>}
+
+          {([
+            { key: "gaId" as const, label: "Google Analytics (GA4)", placeholder: "G-XXXXXXXXXX", hint: "Analytics → Admin → Data Streams → Measurement ID" },
+            { key: "gtmId" as const, label: "Google Tag Manager", placeholder: "GTM-XXXXXXX", hint: "Tag Manager → Container ID" },
+            { key: "gadsId" as const, label: "Google Ads", placeholder: "AW-XXXXXXXXXX", hint: "Google Ads → Tools → Conversions → Tag ID" },
+            { key: "fbPixelId" as const, label: "Facebook Pixel", placeholder: "123456789012345", hint: "Meta Events Manager → Data Sources → Pixel ID" },
+            { key: "tiktokPixelId" as const, label: "TikTok Pixel", placeholder: "CXXXXXXXXXXXXXXXXX", hint: "TikTok Ads → Assets → Events → Pixel ID" },
+          ]).map(({ key, label, placeholder, hint }) => (
+            <div key={key}>
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">{label}</label>
+              <input value={tpForm[key]} onChange={(e) => setTpForm({ ...tpForm, [key]: e.target.value })}
+                className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400 font-mono"
+                placeholder={placeholder} />
+              <p className="text-xs text-stone-400 mt-1">{hint}</p>
+            </div>
+          ))}
+
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1.5">GA4 Measurement ID</label>
-            <input value={gaForm} onChange={(e) => setGaForm(e.target.value)}
-              className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400 font-mono"
-              placeholder="G-XXXXXXXXXX" />
-            <p className="text-xs text-stone-400 mt-1.5">Lấy từ Google Analytics → Admin → Data Streams → Measurement ID</p>
+            <label className="block text-sm font-medium text-stone-700 mb-1.5 flex items-center gap-1.5">
+              <Code className="w-3.5 h-3.5" /> Mã tùy chỉnh (Head)
+            </label>
+            <textarea value={tpForm.customHeadCode} onChange={(e) => setTpForm({ ...tpForm, customHeadCode: e.target.value })}
+              className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400 font-mono h-28 resize-y"
+              placeholder="Dán mã JavaScript tùy chỉnh vào đây..." />
+            <p className="text-xs text-stone-400 mt-1">Mã sẽ được chèn vào tất cả các trang. Chỉ dán code từ nguồn tin cậy.</p>
           </div>
+
           <button type="submit" className="btn-primary text-sm">
             <Save className="w-4 h-4" />
-            {gaSaved ? "Đã lưu!" : "Lưu GA ID"}
+            {tpSaved ? "Đã lưu!" : "Lưu cấu hình"}
           </button>
         </div>
       </form>

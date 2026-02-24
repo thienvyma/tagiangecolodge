@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import StoreInitializer from "@/components/StoreInitializer";
-import GoogleAnalytics from "@/components/GoogleAnalytics";
+import TrackingPixels from "@/components/TrackingPixels";
 
 export const metadata: Metadata = {
   title: "Tà Giang ecolodge – Homestay Sinh Thái tà giang",
@@ -20,7 +20,7 @@ export default function RootLayout({
     <html lang="vi">
       <body>
         <StoreInitializer />
-        <GoogleAnalytics />
+        <TrackingPixels />
         <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
