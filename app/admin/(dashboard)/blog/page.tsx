@@ -6,7 +6,6 @@ import { Plus, Pencil, Trash2, Eye, Bot, Clock, Tag, X, FolderPlus, RefreshCw } 
 import type { BlogPost } from "@/lib/blog";
 import { useStore } from "@/lib/store";
 import ImageUploader from "@/components/admin/ImageUploader";
-import { getSupabase } from "@/lib/supabase";
 
 export default function BlogManager() {
   const { blogCategories, addBlogCategory, deleteBlogCategory } = useStore();
@@ -29,15 +28,11 @@ export default function BlogManager() {
     async function fetchPosts() {
       try {
         setLoading(true);
-        const supabase = getSupabase();
-        const { data, error } = await supabase
-          .from("posts")
-          .select("*")
-          .order("published_at", { ascending: false });
+        const res = await fetch("/api/blog");
+        if (!res.ok) throw new Error("Fetch failed");
+        const data = await res.json();
 
-        if (error) throw error;
-
-        const mappedPosts: BlogPost[] = (data || []).map((p) => ({
+        const mappedPosts: BlogPost[] = (data || []).map((p: Record<string, unknown>) => ({
           id: p.id,
           slug: p.slug,
           title: p.title,
@@ -45,15 +40,15 @@ export default function BlogManager() {
           content: p.content,
           coverImage: p.cover_image,
           category: p.category,
-          tags: p.tags || [],
+          tags: (p.tags as string[]) || [],
           author: p.author,
           publishedAt: p.published_at,
           readTime: p.read_time,
           featured: p.featured,
           seo: {
-            metaTitle: p.seo_meta_title,
-            metaDescription: p.seo_meta_description,
-            focusKeyword: p.seo_focus_keyword,
+            metaTitle: p.seo_meta_title as string,
+            metaDescription: p.seo_meta_description as string,
+            focusKeyword: p.seo_focus_keyword as string,
           },
         }));
         setPosts(mappedPosts);
@@ -107,20 +102,23 @@ export default function BlogManager() {
         seo_focus_keyword: form.focusKeyword,
       };
 
-      const supabase = getSupabase();
-
       if (editing) {
-        // Update
-        const { error } = await supabase.from("posts").update(postData).eq("id", editing.id);
-        if (error) throw error;
+        const res = await fetch("/api/blog", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editing.id, ...postData }),
+        });
+        if (!res.ok) throw new Error("Update failed");
       } else {
-        // Insert
-        // Đảm bảo chỉ có 1 bài featured nếu bài này là featured
         if (form.featured) {
-          await supabase.from("posts").update({ featured: false }).eq("featured", true);
+          await fetch("/api/blog", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: "__unfeature_all__" }) }).catch(() => {});
         }
-        const { error } = await supabase.from("posts").insert([postData]);
-        if (error) throw error;
+        const res = await fetch("/api/blog", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(postData),
+        });
+        if (!res.ok) throw new Error("Insert failed");
       }
 
       setShowForm(false);
@@ -134,9 +132,8 @@ export default function BlogManager() {
   const deletePostDb = async (id: string) => {
     if (!confirm("Xóa bài viết này vĩnh viễn?")) return;
     try {
-      const supabase = getSupabase();
-      const { error } = await supabase.from("posts").delete().eq("id", id);
-      if (error) throw error;
+      const res = await fetch(`/api/blog?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
       setRefreshKey(k => k + 1);
     } catch (err) {
       console.error("Lỗi xóa:", err);
@@ -146,14 +143,13 @@ export default function BlogManager() {
 
   const setFeaturedPostDb = async (id: string, currentlyFeatured: boolean) => {
     try {
-      const supabase = getSupabase();
-      if (!currentlyFeatured) {
-        // Unfeature all others first
-        await supabase.from("posts").update({ featured: false }).eq("featured", true);
-      }
-      // Toggle this one
-      const { error } = await supabase.from("posts").update({ featured: !currentlyFeatured }).eq("id", id);
-      if (error) throw error;
+      // Toggle featured via API
+      const res = await fetch("/api/blog", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, featured: !currentlyFeatured }),
+      });
+      if (!res.ok) throw new Error("Update failed");
       setRefreshKey(k => k + 1);
     } catch (err) {
       console.error("Lỗi set featured:", err);
@@ -329,7 +325,7 @@ export default function BlogManager() {
                   <label className="block text-sm font-medium text-stone-700 mb-1.5">Tags (cách nhau bởi dấu phẩy)</label>
                   <input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })}
                     className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
-                    placeholder="hà giang, du lịch, homestay" />
+                    placeholder="tà giang, du lịch, homestay" />
                 </div>
               </div>
               <label className="flex items-center gap-3 cursor-pointer select-none w-fit">
@@ -373,7 +369,7 @@ export default function BlogManager() {
                     <label className="block text-xs font-medium text-stone-600 mb-1">Từ khóa trọng tâm</label>
                     <input value={form.focusKeyword} onChange={(e) => setForm({ ...form, focusKeyword: e.target.value })}
                       className="w-full border border-stone-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-400"
-                      placeholder="du lịch hà giang tự túc" />
+                      placeholder="du lịch tà giang tự túc" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-stone-600 mb-1">Meta Title</label>

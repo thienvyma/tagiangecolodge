@@ -47,7 +47,7 @@ function LoginForm() {
           <div className="inline-flex items-center justify-center w-14 h-14 bg-forest-600 rounded-2xl mb-4">
             <Leaf className="w-7 h-7 text-white" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-stone-800">Tà Giang Ecolog</h1>
+          <h1 className="font-display text-2xl font-bold text-stone-800">Tà Giang ecolodge</h1>
           <p className="text-stone-500 text-sm mt-1">Đăng nhập vào trang quản trị</p>
         </div>
 

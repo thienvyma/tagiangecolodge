@@ -1,5 +1,5 @@
 -- ==============================================================================
--- 🚀 SCHEMA SUPABASE CHO TÀ GIANG ECOLOG
+-- 🚀 SCHEMA SUPABASE CHO TÀ GIANG ecolodge
 -- Copy toàn bộ nội dung này dán vào SQL Editor trên dashboard Supabase của bạn
 -- ==============================================================================
 
@@ -30,7 +30,7 @@ CREATE TABLE posts (
   cover_image TEXT,
   category TEXT,
   tags TEXT[] DEFAULT '{}',
-  author TEXT DEFAULT 'Tà Giang Ecolog',
+  author TEXT DEFAULT 'Tà Giang ecolodge',
   published_at TIMESTAMPTZ DEFAULT now(),
   read_time INT DEFAULT 5,
   featured BOOLEAN DEFAULT false,

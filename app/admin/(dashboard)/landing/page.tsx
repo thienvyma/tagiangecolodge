@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Plus, Trash2, Pencil, Check, X, Save, MessageCircle } from "lucide-react";
 import { useStore, type AmenityItem, type TestimonialItem, type FloatingCTA, type FloatingCTAButton } from "@/lib/store";
-import { BtnIcon } from "@/components/landing/FloatingCTA";
+import { BtnIcon, resolveColor } from "@/components/landing/FloatingCTA";
 import ImageUploader from "@/components/admin/ImageUploader";
 
 type Tab = "hero" | "about" | "amenities" | "testimonials" | "contact" | "floating";
@@ -381,7 +381,7 @@ function FloatingTab() {
               <p className="text-stone-300 text-xs italic">Chưa có nút nào được bật</p>
             )}
             {form.buttons.filter(b => b.enabled).map((btn) => (
-              <div key={btn.id} className={`flex items-center gap-2 ${btn.color} text-white pl-3 pr-4 py-2 rounded-full shadow-md text-sm font-medium max-w-full`}>
+              <div key={btn.id} style={{ backgroundColor: resolveColor(btn.color) }} className="flex items-center gap-2 text-white pl-3 pr-4 py-2 rounded-full shadow-md text-sm font-medium max-w-full">
                 <span className="w-4 h-4 flex items-center justify-center shrink-0">
                   <BtnIcon type={btn.type} className="w-4 h-4" />
                 </span>
@@ -436,7 +436,7 @@ function FloatingTab() {
                     </div>
                   </div>
                   {/* Preview mini */}
-                  <div className={`flex items-center gap-2.5 ${editBtn.color} text-white pl-3 pr-4 py-2 rounded-full w-fit shadow-sm`}>
+                  <div style={{ backgroundColor: resolveColor(editBtn.color) }} className="flex items-center gap-2.5 text-white pl-3 pr-4 py-2 rounded-full w-fit shadow-sm">
                     <BtnIcon type={editBtn.type} className="w-4 h-4" />
                     <span className="text-sm font-medium">{editBtn.label || "Tên nút"}</span>
                   </div>
@@ -463,7 +463,7 @@ function FloatingTab() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <div className={`w-9 h-9 rounded-full ${btn.color} flex items-center justify-center shrink-0 shadow-sm`}>
+                  <div style={{ backgroundColor: resolveColor(btn.color) }} className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-sm">
                     <BtnIcon type={btn.type} className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -542,7 +542,7 @@ function FloatingTab() {
               </div>
               {/* Preview mini */}
               {newBtn.label && (
-                <div className={`flex items-center gap-2.5 ${newBtn.color} text-white pl-3 pr-4 py-2 rounded-full w-fit shadow-sm`}>
+                <div style={{ backgroundColor: resolveColor(newBtn.color) }} className="flex items-center gap-2.5 text-white pl-3 pr-4 py-2 rounded-full w-fit shadow-sm">
                   <BtnIcon type={newBtn.type} className="w-4 h-4" />
                   <span className="text-sm font-medium">{newBtn.label}</span>
                 </div>

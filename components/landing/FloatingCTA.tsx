@@ -4,6 +4,26 @@ import { MessageCircle, X, Phone, ArrowUp, Link } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Store, FloatingCTAButton } from "@/lib/store";
 
+// ─── Tailwind class → hex color map ───────────────────────────────────────────
+const COLOR_MAP: Record<string, string> = {
+  "bg-emerald-500": "#10b981",
+  "bg-blue-500": "#3b82f6",
+  "bg-blue-600": "#2563eb",
+  "bg-blue-700": "#1d4ed8",
+  "bg-forest-600": "#4a7c59",
+  "bg-amber-500": "#f59e0b",
+  "bg-red-500": "#ef4444",
+  "bg-purple-500": "#a855f7",
+  "bg-stone-700": "#44403c",
+  "bg-pink-500": "#ec4899",
+  "bg-cyan-500": "#06b6d4",
+};
+
+export function resolveColor(cls: string): string {
+  if (cls.startsWith("#")) return cls;
+  return COLOR_MAP[cls] || "#2563eb";
+}
+
 // ─── Platform Icons ───────────────────────────────────────────────────────────
 export function BtnIcon({ type, className = "w-5 h-5" }: { type: FloatingCTAButton["type"]; className?: string }) {
   if (type === "phone") return <Phone className={className} />;
@@ -17,7 +37,7 @@ export function BtnIcon({ type, className = "w-5 h-5" }: { type: FloatingCTAButt
     </svg>
   );
   if (type === "facebook") return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" className={className} fill="white">
       <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
     </svg>
   );
@@ -59,8 +79,8 @@ export default function FloatingCTA() {
           <button
             key={btn.id}
             onClick={() => handleButtonClick(btn)}
-            style={{ transitionDelay: open ? `${i * 40}ms` : "0ms" }}
-            className={`flex items-center gap-2.5 ${btn.color} hover:brightness-110 text-white pl-3 pr-4 py-2.5 rounded-full shadow-lg transition-all duration-200 whitespace-nowrap`}
+            style={{ transitionDelay: open ? `${i * 40}ms` : "0ms", backgroundColor: resolveColor(btn.color) }}
+            className="flex items-center gap-2.5 hover:brightness-110 text-white pl-3 pr-4 py-2.5 rounded-full shadow-lg transition-all duration-200 whitespace-nowrap"
           >
             <span className="w-5 h-5 flex items-center justify-center shrink-0">
               <BtnIcon type={btn.type} className="w-4 h-4" />

@@ -3,14 +3,13 @@ import { useState } from "react";
 import { Bot, Settings2, Sparkles, Copy, Check, Save, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Search, Zap } from "lucide-react";
 import { DEFAULT_AGENT_CONFIG, type AgentConfig } from "@/lib/blog";
 import { useStore } from "@/lib/store";
-import { getSupabase } from "@/lib/supabase";
 const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"];
 
 const PROMPT_TEMPLATES = [
-  { label: "Kinh nghiem du lich", topic: "Kinh nghiem du lich Ha Giang tu tuc", extra: "Lich trinh 3 ngay 2 dem, goi y nghi tai Ta Giang Ecolog" },
-  { label: "Review homestay", topic: "Review homestay sinh thai Ha Giang", extra: "Tap trung khong gian, am thuc, dich vu cua Ta Giang Ecolog" },
-  { label: "Am thuc dia phuong", topic: "Am thuc dac san Ha Giang", extra: "Cac mon nhat dinh phai thu khi den Ha Giang" },
-  { label: "Hoa tam giac mach", topic: "Mua hoa tam giac mach Ha Giang", extra: "Thoi diem dep nhat, dia diem ngam hoa, lich trinh" },
+  { label: "Giới thiệu Tà Giang", topic: "Giới thiệu Tà Giang ecolodge homestay sinh thái", extra: "Tập trung không gian, trải nghiệm, dịch vụ tại Tà Giang ecolodge" },
+  { label: "Trải nghiệm lưu trú", topic: "Trải nghiệm lưu trú tại Tà Giang ecolodge", extra: "Review phòng nghỉ, ẩm thực, hoạt động trải nghiệm" },
+  { label: "Ẩm thực địa phương", topic: "Ẩm thực đặc sản tại Tà Giang ecolodge", extra: "Các món ăn địa phương phục vụ tại homestay" },
+  { label: "Hoạt động trải nghiệm", topic: "Hoạt động trải nghiệm tại Tà Giang ecolodge", extra: "Trekking, văn hóa bản địa, thiên nhiên xung quanh" },
 ];
 
 type GeneratedPost = {
@@ -23,7 +22,7 @@ type GeneratedPost = {
 };
 
 export default function BlogAgentPage() {
-  const { addPost, blogCategories } = useStore();
+  const { blogCategories } = useStore();
   const [config, setConfig] = useState<AgentConfig>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("blog_agent_config");
@@ -57,7 +56,7 @@ export default function BlogAgentPage() {
       const res = await fetch("/api/blog-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: config.model, topic, category, extra, systemPrompt: config.systemPrompt, temperature: config.temperature, maxTokens: config.maxTokens }),
+        body: JSON.stringify({ apiKey: config.apiKey, model: config.model, topic, category, extra, systemPrompt: config.systemPrompt, temperature: config.temperature, maxTokens: config.maxTokens }),
       });
       setStep("Dang viet bai...");
       const data = await res.json();
@@ -82,29 +81,33 @@ export default function BlogAgentPage() {
       const slug = result.title.toLowerCase().normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
 
-      const postData = {
-        slug,
-        title: result.title,
-        excerpt: result.excerpt,
-        content: result.content,
-        cover_image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
-        category,
-        tags: result.tags ?? [],
-        author: "Tà Giang Ecolog",
-        featured: false,
-        seo_meta_title: result.seo.metaTitle,
-        seo_meta_description: result.seo.metaDescription,
-        seo_focus_keyword: result.seo.focusKeyword
-      };
+      const res = await fetch("/api/blog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          title: result.title,
+          excerpt: result.excerpt,
+          content: result.content,
+          cover_image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
+          category,
+          tags: result.tags ?? [],
+          author: "Tà Giang ecolodge",
+          featured: false,
+          seo_meta_title: result.seo?.metaTitle,
+          seo_meta_description: result.seo?.metaDescription,
+          seo_focus_keyword: result.seo?.focusKeyword,
+        }),
+      });
 
-      const supabase = getSupabase();
-      const { error } = await supabase.from("posts").insert([postData]);
-      if (error) throw error;
-
-      alert("Đã lưu bài viết vào Blog Manager thành công (Supabase)!");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Lưu thất bại");
+      }
+      alert("Đã lưu bài viết vào Blog thành công!");
     } catch (err) {
       console.error("Lỗi lưu:", err);
-      alert("Lưu thất bại!");
+      alert("Lưu thất bại: " + (err instanceof Error ? err.message : "Lỗi không xác định"));
     }
   };
 

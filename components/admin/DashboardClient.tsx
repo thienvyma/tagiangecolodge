@@ -1,10 +1,36 @@
 "use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { BedDouble, CalendarCheck, Star, TrendingUp, Clock } from "lucide-react";
-import { useStore } from "@/lib/store";
+import { BedDouble, CalendarCheck, Star, TrendingUp, Clock, RefreshCw } from "lucide-react";
+import { useStore, type Booking } from "@/lib/store";
 
 export default function DashboardClient() {
-  const { rooms, bookings } = useStore();
+  const { rooms } = useStore();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchBookings() {
+      try {
+        const res = await fetch("/api/booking");
+        if (!res.ok) throw new Error("Fetch failed");
+        const data = await res.json();
+        const mapped: Booking[] = (data || []).map((b: Record<string, unknown>) => ({
+          id: b.id, guest: b.guest, email: b.email, phone: b.phone,
+          roomId: b.room_id, roomName: b.room_name, checkin: b.checkin,
+          checkout: b.checkout, guests: b.guests, message: b.message,
+          total: Number(b.total), status: b.status as Booking["status"],
+          createdAt: b.created_at,
+        }));
+        setBookings(mapped);
+      } catch (err) {
+        console.error("Lỗi tải bookings:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchBookings();
+  }, []);
 
   const confirmed = bookings.filter((b) => b.status === "confirmed");
   const pending = bookings.filter((b) => b.status === "pending");
@@ -77,7 +103,12 @@ export default function DashboardClient() {
           <h2 className="font-semibold text-stone-800">Đơn Đặt phòng gần đây</h2>
           <Link href="/admin/bookings" className="text-sm text-forest-600 hover:underline">Xem tất cả</Link>
         </div>
-        {bookings.length === 0 ? (
+        {loading ? (
+          <div className="px-6 py-10 text-center text-stone-400">
+            <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin text-stone-300" />
+            <p className="text-sm">Đang tải...</p>
+          </div>
+        ) : bookings.length === 0 ? (
           <div className="px-6 py-10 text-center text-stone-400">
             <Clock className="w-8 h-8 mx-auto mb-2 text-stone-300" />
             <p className="text-sm">Chưa có đơn Đặt phòng. Đơn từ landing page sẽ hiển thị ở đây.</p>

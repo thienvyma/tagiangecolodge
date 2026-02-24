@@ -1,15 +1,15 @@
 export const SITE = {
-  name: "Tà Giang Ecolog",
+  name: "Tà Giang ecolodge",
   tagline: "Sống chậm giữa thiên nhiên",
   phone: "+84 xxx xxx xxx",
-  email: "contact@tagiangecolog.vn",
-  address: "Thôn Tà Giang, Xã Tả Lủng, Mèo Vạc, Hà Giang",
+  email: "contact@tagiangecolodge.vn",
+  address: "Thôn Tà Giang, Xã Tả Lủng, Mèo Vạc, tà giang",
   mapUrl: "https://maps.google.com",
   facebook: "https://facebook.com",
   instagram: "https://instagram.com",
   footer: {
     description: "Trải nghiệm thiên nhiên hoang sơ",
-    address: "Tà Giang, Hà Giang",
+    address: "Tà Giang, tà giang",
     phone: "+84 123 456 789",
     email: "hello@tagiang.com",
     socials: { facebook: "", instagram: "" }
@@ -55,7 +55,7 @@ export const ROOMS = [
 export const AMENITIES = [
   { icon: "🌿", title: "Vườn sinh thái", desc: "Rau sạch tự trồng phục vụ bữa ăn hàng ngày" },
   { icon: "🏔️", title: "Trekking dẫn đường", desc: "Hướng dẫn viên bản địa dẫn khám phá cao nguyên đá" },
-  { icon: "🍲", title: "Ẩm thực địa phương", desc: "Thắng cố, mèn mén, rượu ngô – đặc sản Hà Giang" },
+  { icon: "🍲", title: "Ẩm thực địa phương", desc: "Thắng cố, mèn mén, rượu ngô – đặc sản tà giang" },
   { icon: "🚴", title: "Thuê xe đạp", desc: "Khám phá làng bản quanh vùng theo nhịp chậm" },
   { icon: "📸", title: "Điểm chụp ảnh", desc: "Ruộng bậc thang, cổng trời, cột cờ Lũng Cú" },
   { icon: "🔥", title: "Lửa trại", desc: "Đêm lửa trại giao lưu văn hóa dân tộc H'Mông" },
@@ -87,7 +87,7 @@ export const TESTIMONIALS = [
 
 export const GALLERY_IMAGES = [
   { src: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80", alt: "Cao nguyên đá Đồng Văn" },
-  { src: "https://images.unsplash.com/photo-1540202404-a2f29016b523?w=800&q=80", alt: "Ruộng bậc thang Hà Giang" },
+  { src: "https://images.unsplash.com/photo-1540202404-a2f29016b523?w=800&q=80", alt: "Ruộng bậc thang tà giang" },
   { src: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&q=80", alt: "Phòng nghỉ sinh thái" },
   { src: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&q=80", alt: "Ẩm thực địa phương" },
   { src: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80", alt: "Trekking núi đá" },

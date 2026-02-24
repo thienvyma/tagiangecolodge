@@ -39,7 +39,7 @@ function buildEmailHTML(data: {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đặt phòng mới – Tà Giang Ecolog</title>
+  <title>Đặt phòng mới – Tà Giang ecolodge</title>
 </head>
 <body style="margin:0;padding:0;background:#f5f5f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f0;padding:32px 16px;">
@@ -50,7 +50,7 @@ function buildEmailHTML(data: {
           <!-- Header -->
           <tr>
             <td style="background:#2d5a27;border-radius:16px 16px 0 0;padding:32px 40px;text-align:center;">
-              <p style="margin:0 0 4px;color:#a3d99a;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Tà Giang Ecolog</p>
+              <p style="margin:0 0 4px;color:#a3d99a;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Tà Giang ecolodge</p>
               <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">🌿 Đặt phòng mới!</h1>
               <p style="margin:8px 0 0;color:#c8e6c4;font-size:14px;">Mã Đặt phòng: <strong>${data.bookingId}</strong></p>
             </td>
@@ -135,7 +135,7 @@ function buildEmailHTML(data: {
           <tr>
             <td style="background:#f9f6f2;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center;">
               <p style="margin:0;font-size:12px;color:#a8a29e;">
-                Email này được gửi tự động từ hệ thống Tà Giang Ecolog.<br />
+                Email này được gửi tự động từ hệ thống Tà Giang ecolodge.<br />
                 Nhận phòng lúc 14:00 · Trả phòng trước 12:00
               </p>
             </td>
@@ -166,6 +166,27 @@ export async function POST(req: NextRequest) {
         const total = Math.max(1, nights) * (roomPrice ?? 0);
         const bookingId = `BK${Date.now()}`;
 
+        // ── Check for overlapping confirmed bookings ──────────────────────────
+        try {
+            const supabase = getSupabase();
+            const { data: conflicts } = await supabase
+                .from("bookings")
+                .select("id")
+                .eq("room_id", roomId || 0)
+                .eq("status", "confirmed")
+                .lt("checkin", checkout)
+                .gt("checkout", checkin);
+
+            if (conflicts && conflicts.length > 0) {
+                return NextResponse.json(
+                    { error: "Phòng đã có khách đặt trong khoảng thời gian này. Vui lòng chọn ngày khác." },
+                    { status: 409 }
+                );
+            }
+        } catch (checkErr) {
+            console.error("[availability check]", checkErr);
+        }
+
         // ── Send email (only if env vars are configured) ───────────────────────
         const gmailUser = process.env.GMAIL_USER;
         const gmailPass = process.env.GMAIL_APP_PASSWORD;
@@ -178,7 +199,7 @@ export async function POST(req: NextRequest) {
             });
 
             await transporter.sendMail({
-                from: `"Tà Giang Ecolog" <${gmailUser}>`,
+                from: `"Tà Giang ecolodge" <${gmailUser}>`,
                 to: notifyEmail,
                 subject: `🏡 Đặt phòng mới: ${guest} - ${roomName} (${checkin})`,
                 html: buildEmailHTML({
@@ -225,6 +246,52 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, bookingId, total, savedToDb });
     } catch (err: unknown) {
         console.error("[booking api]", err);
+        const msg = err instanceof Error ? err.message : "Server error";
+        return NextResponse.json({ error: msg }, { status: 500 });
+    }
+}
+
+// ─── GET: List bookings ───────────────────────────────────────────────────────
+export async function GET() {
+    try {
+        const supabase = getSupabase();
+        const { data, error } = await supabase
+            .from("bookings")
+            .select("*")
+            .order("created_at", { ascending: false });
+        if (error) throw error;
+        return NextResponse.json(data || []);
+    } catch (err) {
+        console.error("[booking-get]", err);
+        return NextResponse.json({ error: "Server error" }, { status: 500 });
+    }
+}
+
+// ─── PUT: Update booking status ───────────────────────────────────────────────
+export async function PUT(req: NextRequest) {
+    try {
+        const { id, status } = await req.json();
+        if (!id || !status) return NextResponse.json({ error: "Thiếu id hoặc status" }, { status: 400 });
+        const supabase = getSupabase();
+        const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+        if (error) throw error;
+        return NextResponse.json({ ok: true });
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Server error";
+        return NextResponse.json({ error: msg }, { status: 500 });
+    }
+}
+
+// ─── DELETE: Delete booking ───────────────────────────────────────────────────
+export async function DELETE(req: NextRequest) {
+    try {
+        const id = req.nextUrl.searchParams.get("id");
+        if (!id) return NextResponse.json({ error: "Thiếu id" }, { status: 400 });
+        const supabase = getSupabase();
+        const { error } = await supabase.from("bookings").delete().eq("id", id);
+        if (error) throw error;
+        return NextResponse.json({ ok: true });
+    } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Server error";
         return NextResponse.json({ error: msg }, { status: 500 });
     }

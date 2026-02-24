@@ -21,7 +21,7 @@ Yêu cầu thêm: ${extra || "Không có"}
 Deeplinks nội bộ cần gắn tự nhiên vào bài:
 ${deeplinksStr}
 
-Hãy sử dụng Google Search để research thông tin mới nhất về chủ đề này, sau đó viết bài hoàn chỉnh.
+Hãy sử dụng Google Search để research thông tin mới nhất về Tà Giang ecolodge và chủ đề này, sau đó viết bài hoàn chỉnh.
 
 Trả về JSON (và CHỈ JSON, không có text ngoài) với format:
 {
@@ -39,10 +39,10 @@ Trả về JSON (và CHỈ JSON, không có text ngoài) với format:
 
 export async function POST(req: NextRequest) {
   try {
-    const { model, topic, category, extra, systemPrompt, temperature, maxTokens } = await req.json();
+    const { apiKey: clientKey, model, topic, category, extra, systemPrompt, temperature, maxTokens } = await req.json();
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "GEMINI_API_KEY chưa được cấu hình trên server" }, { status: 500 });
+    const apiKey = clientKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "Chưa có API key. Vui lòng nhập Google AI API Key trong phần Cấu hình." }, { status: 400 });
     if (!topic) return NextResponse.json({ error: "Thiếu chủ đề" }, { status: 400 });
 
     const prompt = buildPrompt(topic, category, extra, systemPrompt);

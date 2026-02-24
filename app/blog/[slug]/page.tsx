@@ -6,8 +6,9 @@ import Link from "next/link";
 import { Clock, Tag, ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
+import FloatingCTA from "@/components/landing/FloatingCTA";
+import ScrollToTop from "@/components/landing/ScrollToTop";
 import type { BlogPost } from "@/lib/blog";
-import { getSupabase } from "@/lib/supabase";
 
 export default function BlogPostPage({ params }: { params: { slug: string } }) {
   const [post, setPost] = useState<BlogPost | null>(null);
@@ -18,55 +19,32 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
   useEffect(() => {
     async function fetchPost() {
       try {
-        const supabase = getSupabase();
-
         // Fetch current post
-        const { data: postData, error: postError } = await supabase
-          .from("posts")
-          .select("*")
-          .eq("slug", params.slug)
-          .single();
-
-        if (postError) throw postError;
+        const res = await fetch(`/api/blog?slug=${params.slug}`);
+        if (!res.ok) throw new Error("Not found");
+        const postData = await res.json();
 
         const mappedPost: BlogPost = {
-          id: postData.id,
-          slug: postData.slug,
-          title: postData.title,
-          excerpt: postData.excerpt,
-          content: postData.content,
-          coverImage: postData.cover_image,
-          category: postData.category,
-          tags: postData.tags || [],
-          author: postData.author,
-          publishedAt: postData.published_at,
-          readTime: postData.read_time,
-          featured: postData.featured,
-          seo: {
-            metaTitle: postData.seo_meta_title,
-            metaDescription: postData.seo_meta_description,
-            focusKeyword: postData.seo_focus_keyword,
-          }
+          id: postData.id, slug: postData.slug, title: postData.title, excerpt: postData.excerpt,
+          content: postData.content, coverImage: postData.cover_image, category: postData.category,
+          tags: postData.tags || [], author: postData.author, publishedAt: postData.published_at,
+          readTime: postData.read_time, featured: postData.featured,
+          seo: { metaTitle: postData.seo_meta_title, metaDescription: postData.seo_meta_description, focusKeyword: postData.seo_focus_keyword },
         };
         setPost(mappedPost);
 
         // Fetch related
-        const { data: relatedData } = await supabase
-          .from("posts")
-          .select("*")
-          .neq("id", postData.id)
-          .limit(2)
-          .order("published_at", { ascending: false });
-
-        if (relatedData) {
-          setRelated(relatedData.map(r => ({
-            ...r,
-            coverImage: r.cover_image,
-            readTime: r.read_time,
-            seo: {}
+        const allRes = await fetch("/api/blog");
+        if (allRes.ok) {
+          const allData = await allRes.json();
+          const others = (allData || []).filter((p: Record<string, unknown>) => p.id !== postData.id).slice(0, 2);
+          setRelated(others.map((r: Record<string, unknown>) => ({
+            id: r.id, slug: r.slug, title: r.title, excerpt: r.excerpt, content: r.content,
+            coverImage: r.cover_image, category: r.category, tags: (r.tags as string[]) || [],
+            author: r.author, publishedAt: r.published_at, readTime: r.read_time, featured: r.featured,
+            seo: {},
           })) as BlogPost[]);
         }
-
       } catch (err) {
         console.error("Lỗi tải bài viết:", err);
         setError(true);
@@ -131,9 +109,9 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
                   ))}
                 </div>
                 <div className="mt-10 bg-forest-50 rounded-2xl p-7 text-center">
-                  <h3 className="font-display text-xl font-bold text-forest-800 mb-2">Sẵn sàng trải nghiệm Hà Giang?</h3>
+                  <h3 className="font-display text-xl font-bold text-forest-800 mb-2">Sẵn sàng trải nghiệm tà giang?</h3>
                   <p className="text-stone-600 text-sm mb-5">
-                    Đặt phòng tại <Link href="/#rooms" className="text-forest-600 font-medium hover:underline">Tà Giang Ecolog</Link> để có chuyến đi trọn vẹn nhất.
+                    Đặt phòng tại <Link href="/#rooms" className="text-forest-600 font-medium hover:underline">Tà Giang ecolodge</Link> để có chuyến đi trọn vẹn nhất.
                   </p>
                   <Link href="/#contact" className="btn-primary">Đặt phòng ngay <ArrowRight className="w-4 h-4" /></Link>
                 </div>
@@ -172,6 +150,8 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
         </div>
       </main>
       <Footer />
+      <FloatingCTA />
+      <ScrollToTop />
     </>
   );
 }

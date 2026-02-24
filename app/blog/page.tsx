@@ -6,8 +6,9 @@ import { Clock, Tag, ArrowRight, RefreshCw } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import { useStore } from "@/lib/store";
+import FloatingCTA from "@/components/landing/FloatingCTA";
+import ScrollToTop from "@/components/landing/ScrollToTop";
 import type { BlogPost } from "@/lib/blog";
-import { getSupabase } from "@/lib/supabase";
 
 export default function BlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -17,33 +18,15 @@ export default function BlogPage() {
   useEffect(() => {
     async function fetchPosts() {
       try {
-        const supabase = getSupabase();
-        const { data, error } = await supabase
-          .from("posts")
-          .select("*")
-          .order("published_at", { ascending: false });
+        const res = await fetch("/api/blog");
+        if (!res.ok) throw new Error("Fetch failed");
+        const data = await res.json();
 
-        if (error) throw error;
-
-        // Map snake_case to camelCase
-        const mappedPosts: BlogPost[] = (data || []).map((p) => ({
-          id: p.id,
-          slug: p.slug,
-          title: p.title,
-          excerpt: p.excerpt,
-          content: p.content,
-          coverImage: p.cover_image,
-          category: p.category,
-          tags: p.tags || [],
-          author: p.author,
-          publishedAt: p.published_at,
-          readTime: p.read_time,
-          featured: p.featured,
-          seo: {
-            metaTitle: p.seo_meta_title,
-            metaDescription: p.seo_meta_description,
-            focusKeyword: p.seo_focus_keyword,
-          },
+        const mappedPosts: BlogPost[] = (data || []).map((p: Record<string, unknown>) => ({
+          id: p.id, slug: p.slug, title: p.title, excerpt: p.excerpt, content: p.content,
+          coverImage: p.cover_image, category: p.category, tags: (p.tags as string[]) || [],
+          author: p.author, publishedAt: p.published_at, readTime: p.read_time, featured: p.featured,
+          seo: { metaTitle: p.seo_meta_title as string, metaDescription: p.seo_meta_description as string, focusKeyword: p.seo_focus_keyword as string },
         }));
         setPosts(mappedPosts);
       } catch (err) {
@@ -87,7 +70,7 @@ export default function BlogPage() {
           <div className="max-w-7xl mx-auto">
             <span className="text-forest-300 text-sm font-semibold tracking-widest uppercase">Blog</span>
             <h1 className="font-display text-4xl lg:text-5xl font-bold mt-3 mb-4">Câu chuyện Tà Giang</h1>
-            <p className="text-forest-200 max-w-xl">Kinh nghiệm du lịch, ẩm thực, văn hóa và những góc nhìn từ trái tim cao nguyên đá Hà Giang.</p>
+            <p className="text-forest-200 max-w-xl">Kinh nghiệm du lịch, ẩm thực, văn hóa và những góc nhìn từ trái tim cao nguyên đá tà giang.</p>
           </div>
         </div>
 
@@ -166,7 +149,7 @@ export default function BlogPage() {
               </div>
               <div className="bg-forest-700 rounded-2xl p-6 text-white">
                 <h3 className="font-display font-bold text-lg mb-2">Đặt phòng ngay</h3>
-                <p className="text-forest-200 text-sm mb-4">Trải nghiệm Hà Giang tại Tà Giang Ecolog.</p>
+                <p className="text-forest-200 text-sm mb-4">Trải nghiệm tà giang tại Tà Giang ecolodge.</p>
                 <Link href="/#contact" className="inline-flex items-center gap-2 bg-white text-forest-700 hover:bg-forest-50 font-medium px-4 py-2.5 rounded-lg text-sm transition-colors w-full justify-center">
                   Liên hệ ngay
                 </Link>
@@ -176,6 +159,8 @@ export default function BlogPage() {
         </div>
       </main>
       <Footer />
+      <FloatingCTA />
+      <ScrollToTop />
     </>
   );
 }

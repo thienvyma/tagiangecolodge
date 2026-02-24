@@ -106,7 +106,7 @@ const vi = {
 
     footer: {
         copyright: "Tà Giang Ecolodge. Bảo lưu mọi quyền.",
-        tagline: "Sống chậm giữa thiên nhiên · Hà Giang, Việt Nam",
+        tagline: "Sống chậm giữa thiên nhiên · tà giang, Việt Nam",
         links: {
             rooms: "Phòng nghỉ",
             amenities: "Tiện ích",

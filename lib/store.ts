@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { ROOMS as INITIAL_ROOMS, GALLERY_IMAGES as INITIAL_GALLERY, SITE as INITIAL_SITE, AMENITIES as INITIAL_AMENITIES, TESTIMONIALS as INITIAL_TESTIMONIALS } from "./data";
-import { MOCK_POSTS, DEFAULT_BLOG_CATEGORIES } from "./blog";
-import type { BlogPost } from "./blog";
+import { DEFAULT_BLOG_CATEGORIES } from "./blog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,6 +121,7 @@ export type FooterContent = {
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export type Store = {
+  _hydrated: boolean;
   initStore: () => Promise<void>;
 
   // Rooms
@@ -129,12 +129,6 @@ export type Store = {
   addRoom: (room: Omit<Room, "id">) => void;
   updateRoom: (id: number, data: Partial<Room>) => void;
   deleteRoom: (id: number) => void;
-
-  // Bookings
-  bookings: Booking[];
-  addBooking: (booking: Omit<Booking, "id" | "createdAt" | "status" | "total">) => void;
-  updateBookingStatus: (id: string, status: Booking["status"]) => void;
-  deleteBooking: (id: string) => void;
 
   // Gallery
   gallery: GalleryItem[];
@@ -144,12 +138,7 @@ export type Store = {
   deleteGalleryItem: (id: string) => void;
   reorderGallery: (items: GalleryItem[]) => void;
 
-  // Blog
-  posts: BlogPost[];
-  addPost: (post: Omit<BlogPost, "id" | "publishedAt" | "readTime">) => void;
-  updatePost: (id: string, data: Partial<BlogPost>) => void;
-  deletePost: (id: string) => void;
-  setFeaturedPost: (id: string) => void;
+  // Blog categories
   blogCategories: string[];
   addBlogCategory: (name: string) => void;
   deleteBlogCategory: (name: string) => void;
@@ -175,6 +164,10 @@ export type Store = {
   footer: FooterContent;
   updateFooter: (data: Partial<FooterContent>) => void;
 
+  // Google Analytics
+  gaId: string;
+  updateGaId: (id: string) => void;
+
   // Floating CTA
   floatingCTA: FloatingCTA;
   updateFloatingCTA: (data: Partial<FloatingCTA>) => void;
@@ -188,16 +181,13 @@ const initialGallery: GalleryItem[] = INITIAL_GALLERY.map((g, i) => ({
   category: "Tổng hợp",
 }));
 
-// ─── Save ALL relevant state to Supabase ──────────────────────────────────────
+// ─── Save site content state to Supabase (NOT bookings/posts - they have own tables) ──
 const saveToSupabase = async (state: Partial<Store>) => {
   try {
     const payload: Record<string, unknown> = {};
 
-    // Include every piece of state that should be persisted
     if (state.rooms !== undefined) payload.rooms = state.rooms;
-    if (state.bookings !== undefined) payload.bookings = state.bookings;
     if (state.gallery !== undefined) payload.gallery = state.gallery;
-    if (state.posts !== undefined) payload.posts = state.posts;
     if (state.blogCategories !== undefined) payload.blogCategories = state.blogCategories;
     if (state.settings !== undefined) payload.settings = state.settings;
     if (state.hero !== undefined) payload.hero = state.hero;
@@ -206,6 +196,7 @@ const saveToSupabase = async (state: Partial<Store>) => {
     if (state.testimonials !== undefined) payload.testimonials = state.testimonials;
     if (state.footer !== undefined) payload.footer = state.footer;
     if (state.floatingCTA !== undefined) payload.floatingCTA = state.floatingCTA;
+    if (state.gaId !== undefined) payload.gaId = state.gaId;
 
     await fetch('/api/site-data', {
       method: 'POST',
@@ -219,17 +210,31 @@ const saveToSupabase = async (state: Partial<Store>) => {
 
 export const useStore = create<Store>()(
   (set, get) => ({
+    _hydrated: false,
     initStore: async () => {
       try {
         const res = await fetch('/api/site-data');
         if (res.ok) {
           const data = await res.json();
-          // Filter out missing keys to not override with undefined
-          const validData = Object.fromEntries(Object.entries(data).filter(([_, v]) => v != null));
-          set((state) => ({ ...state, ...validData }));
+          if (data.error) { console.warn("site-data error:", data.error); set({ _hydrated: true }); return; }
+          const storeKeys = ["rooms", "gallery", "blogCategories", "settings", "hero", "about", "amenities", "testimonials", "footer", "floatingCTA", "gaId"];
+          const validData = Object.fromEntries(
+            Object.entries(data).filter(([k, v]) => storeKeys.includes(k) && v != null)
+          );
+          if (Object.keys(validData).length > 0) {
+            set((state) => ({ ...state, ...validData, _hydrated: true }));
+          } else {
+            // First run — seed defaults to Supabase
+            const defaults = get();
+            saveToSupabase(defaults);
+            set({ _hydrated: true });
+          }
+        } else {
+          set({ _hydrated: true });
         }
       } catch (e) {
         console.error("Failed to load initial site data", e);
+        set({ _hydrated: true });
       }
     },
 
@@ -252,40 +257,6 @@ export const useStore = create<Store>()(
     deleteRoom: (id) => {
       set((s) => {
         const next = { rooms: s.rooms.filter((r) => r.id !== id) };
-        saveToSupabase({ ...s, ...next });
-        return next;
-      });
-    },
-
-    // ── Bookings ──
-    bookings: [],
-    addBooking: (booking) => {
-      const room = get().rooms.find((r) => r.id === booking.roomId);
-      if (!room) return;
-      const nights =
-        (new Date(booking.checkout).getTime() - new Date(booking.checkin).getTime()) / 86400000;
-      const total = Math.max(1, nights) * room.price;
-      set((s) => {
-        const next = {
-          bookings: [
-            { ...booking, id: `BK${Date.now()}`, status: "pending" as const, total, createdAt: new Date().toISOString() },
-            ...s.bookings,
-          ],
-        };
-        saveToSupabase({ ...s, ...next });
-        return next;
-      });
-    },
-    updateBookingStatus: (id, status) => {
-      set((s) => {
-        const next = { bookings: s.bookings.map((b) => (b.id === id ? { ...b, status } : b)) };
-        saveToSupabase({ ...s, ...next });
-        return next;
-      });
-    },
-    deleteBooking: (id) => {
-      set((s) => {
-        const next = { bookings: s.bookings.filter((b) => b.id !== id) };
         saveToSupabase({ ...s, ...next });
         return next;
       });
@@ -330,47 +301,7 @@ export const useStore = create<Store>()(
       });
     },
 
-    // ── Blog ──
-    posts: MOCK_POSTS,
-    addPost: (post) => {
-      const words = post.content.split(" ").length;
-      set((s) => {
-        const next = {
-          posts: [
-            {
-              ...post,
-              id: Date.now().toString(),
-              publishedAt: new Date().toISOString().split("T")[0],
-              readTime: Math.max(1, Math.ceil(words / 200)),
-            },
-            ...s.posts,
-          ],
-        };
-        saveToSupabase({ ...s, ...next });
-        return next;
-      });
-    },
-    updatePost: (id, data) => {
-      set((s) => {
-        const next = { posts: s.posts.map((p) => (p.id === id ? { ...p, ...data } : p)) };
-        saveToSupabase({ ...s, ...next });
-        return next;
-      });
-    },
-    deletePost: (id) => {
-      set((s) => {
-        const next = { posts: s.posts.filter((p) => p.id !== id) };
-        saveToSupabase({ ...s, ...next });
-        return next;
-      });
-    },
-    setFeaturedPost: (id) => {
-      set((s) => {
-        const next = { posts: s.posts.map((p) => ({ ...p, featured: p.id === id })) };
-        saveToSupabase({ ...s, ...next });
-        return next;
-      });
-    },
+    // ── Blog Categories ──
     blogCategories: DEFAULT_BLOG_CATEGORIES,
     addBlogCategory: (name) => {
       set((s) => {
@@ -399,9 +330,9 @@ export const useStore = create<Store>()(
 
     // ── Hero ──
     hero: {
-      badge: "Homestay Sinh Thái · Hà Giang",
+      badge: "Homestay Sinh Thái · tà giang",
       title: "Tà Giang",
-      titleItalic: "Ecolog",
+      titleItalic: "ecolodge",
       subtitle: "Sống chậm giữa cao nguyên đá. Thở sâu trong không khí trong lành. Kết nối với thiên nhiên hoang sơ và văn hóa bản địa.",
       bgImage: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=85",
       ctaPrimary: "Xem phòng nghỉ",
@@ -420,8 +351,8 @@ export const useStore = create<Store>()(
       badge: "Về chúng tôi",
       heading: "Nơi thiên nhiên",
       headingItalic: "chào đón bạn",
-      body1: "Tà Giang Ecolog được xây dựng với triết lý tôn trọng thiên nhiên và bảo tồn văn hóa bản địa. Mỗi góc nhỏ của homestay đều được thiết kế từ vật liệu địa phương – đá, tre, gỗ – hòa quyện với cảnh quan cao nguyên đá hùng vĩ.",
-      body2: "Chúng tôi không chỉ cung cấp chỗ nghỉ, mà còn mang đến những trải nghiệm sống thực sự: cùng người dân bản địa làm nương, nấu ăn, và nghe những câu chuyện về mảnh đất Hà Giang.",
+      body1: "Tà Giang ecolodge được xây dựng với triết lý tôn trọng thiên nhiên và bảo tồn văn hóa bản địa. Mỗi góc nhỏ của homestay đều được thiết kế từ vật liệu địa phương – đá, tre, gỗ – hòa quyện với cảnh quan cao nguyên đá hùng vĩ.",
+      body2: "Chúng tôi không chỉ cung cấp chỗ nghỉ, mà còn mang đến những trải nghiệm sống thực sự: cùng người dân bản địa làm nương, nấu ăn, và nghe những câu chuyện về mảnh đất tà giang.",
       image1: "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=700&q=80",
       image2: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=500&q=80",
       badgeNumber: "5+",
@@ -491,7 +422,7 @@ export const useStore = create<Store>()(
     // ── Footer ──
     footer: INITIAL_SITE.footer || {
       description: "Trải nghiệm thiên nhiên hoang sơ",
-      address: "Tà Giang, Hà Giang",
+      address: "Tà Giang, tà giang",
       phone: "+84 123 456 789",
       email: "hello@tagiang.com",
       socials: { facebook: "", instagram: "" }
@@ -499,6 +430,16 @@ export const useStore = create<Store>()(
     updateFooter: (data) => {
       set((s) => {
         const next = { footer: { ...s.footer, ...data } };
+        saveToSupabase({ ...s, ...next });
+        return next;
+      });
+    },
+
+    // ── Google Analytics ──
+    gaId: "",
+    updateGaId: (id) => {
+      set((s) => {
+        const next = { gaId: id };
         saveToSupabase({ ...s, ...next });
         return next;
       });

@@ -1,5 +1,5 @@
 -- ==============================================================================
--- 🚀 SCHEMA SUPABASE CHO TÀ GIANG ECOLOG
+-- 🚀 SCHEMA SUPABASE CHO TÀ GIANG ecolodge
 -- Copy toàn bộ nội dung này dán vào SQL Editor trên dashboard Supabase của bạn
 -- ==============================================================================
 
@@ -30,13 +30,19 @@ CREATE TABLE posts (
   cover_image TEXT,
   category TEXT,
   tags TEXT[] DEFAULT '{}',
-  author TEXT DEFAULT 'Tà Giang Ecolog',
+  author TEXT DEFAULT 'Tà Giang ecolodge',
   published_at TIMESTAMPTZ DEFAULT now(),
   read_time INT DEFAULT 5,
   featured BOOLEAN DEFAULT false,
   seo_meta_title TEXT,
   seo_meta_description TEXT,
   seo_focus_keyword TEXT
+);
+
+-- 3. Bảng site_data (key-value cho settings, rooms, gallery, hero, about, etc.)
+CREATE TABLE IF NOT EXISTS site_data (
+  key TEXT PRIMARY KEY,
+  value JSONB
 );
 
 -- ==============================================================================
@@ -60,3 +66,7 @@ CREATE POLICY "Cho phép đọc/sửa/xóa bài viết ẩn danh" ON posts FOR A
 -- *Lưu ý: Trong dự án thực tế lớn hơn, bạn nên dùng service_role_key trên server 
 -- thay vì mở public policy như trên. Ở dự án này, toàn bộ sửa/xóa đều nằm sau lớp
 -- bảo mật /admin login của riêng Next.js nên tạm thời mở policy auth ẩn danh.*
+
+-- site_data: Cho phép đọc/ghi từ API routes
+ALTER TABLE site_data ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Cho phép đọc/sửa site_data ẩn danh" ON site_data FOR ALL USING (true);

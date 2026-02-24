@@ -1,12 +1,20 @@
 "use client";
+import { useState } from "react";
 import Image from "next/image";
-import { Users, Maximize2, Wifi } from "lucide-react";
+import { Users, Maximize2, Wifi, ChevronLeft, ChevronRight } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useLang } from "@/lib/i18n/LanguageContext";
+
+const PAGE_SIZE = 3;
 
 export default function Rooms() {
   const rooms = useStore((s) => s.rooms);
   const { t } = useLang();
+  const [page, setPage] = useState(0);
+
+  const available = rooms.filter((r) => r.available);
+  const totalPages = Math.ceil(available.length / PAGE_SIZE);
+  const visible = available.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <section id="rooms" className="py-24 bg-cream">
@@ -17,12 +25,12 @@ export default function Rooms() {
             {t.rooms.sectionTitle} <span className="text-forest-600 italic">{t.rooms.sectionTitleItalic}</span>
           </h2>
           <p className="text-stone-500 mt-4 max-w-xl mx-auto">
-            Mỗi phòng là một câu chuyện riêng – được thiết kế để bạn cảm nhận trọn vẹn vẻ đẹp của Hà Giang.
+            Mỗi phòng là một câu chuyện riêng – được thiết kế để bạn cảm nhận trọn vẹn vẻ đẹp của tà giang.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {rooms.filter((r) => r.available).map((room) => (
+          {visible.map((room) => (
             <div key={room.id}
               className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-shadow duration-300 group">
               <div className="relative h-56 overflow-hidden">
@@ -63,6 +71,38 @@ export default function Rooms() {
             </div>
           ))}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-10">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="p-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Trang trước"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i)}
+                className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+                  page === i ? "bg-forest-600 text-white" : "border border-stone-200 text-stone-600 hover:bg-stone-50"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page === totalPages - 1}
+              className="p-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Trang sau"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

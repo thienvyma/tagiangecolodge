@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Search, CheckCircle, XCircle, Trash2, Clock, RefreshCw } from "lucide-react";
 import clsx from "clsx";
 import type { Booking } from "@/lib/store";
-import { getSupabase } from "@/lib/supabase";
 
 const STATUS_STYLES: Record<Booking["status"], string> = {
   confirmed: "bg-emerald-50 text-emerald-700",
@@ -29,28 +28,15 @@ export default function BookingsAdmin() {
     async function fetchBookings() {
       try {
         setLoading(true);
-        const supabase = getSupabase();
-        const { data, error } = await supabase
-          .from("bookings")
-          .select("*")
-          .order("created_at", { ascending: false });
+        const res = await fetch("/api/booking");
+        if (!res.ok) throw new Error("Fetch failed");
+        const data = await res.json();
 
-        if (error) throw error;
-
-        // Map snake_case to camelCase
-        const mappedBookings: Booking[] = (data || []).map(b => ({
-          id: b.id,
-          guest: b.guest,
-          email: b.email,
-          phone: b.phone,
-          roomId: b.room_id,
-          roomName: b.room_name,
-          checkin: b.checkin,
-          checkout: b.checkout,
-          guests: b.guests,
-          message: b.message,
-          total: Number(b.total),
-          status: b.status as Booking["status"],
+        const mappedBookings: Booking[] = (data || []).map((b: Record<string, unknown>) => ({
+          id: b.id, guest: b.guest, email: b.email, phone: b.phone,
+          roomId: b.room_id, roomName: b.room_name, checkin: b.checkin,
+          checkout: b.checkout, guests: b.guests, message: b.message,
+          total: Number(b.total), status: b.status as Booking["status"],
           createdAt: b.created_at,
         }));
         setBookings(mappedBookings);
@@ -65,9 +51,12 @@ export default function BookingsAdmin() {
 
   const updateBookingStatus = async (id: string, status: Booking["status"]) => {
     try {
-      const supabase = getSupabase();
-      const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
-      if (error) throw error;
+      const res = await fetch("/api/booking", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (!res.ok) throw new Error("Update failed");
       setRefreshKey(k => k + 1);
     } catch (err) {
       console.error("Lỗi cập nhật:", err);
@@ -78,9 +67,8 @@ export default function BookingsAdmin() {
   const deleteBooking = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa đơn đặt phòng này?")) return;
     try {
-      const supabase = getSupabase();
-      const { error } = await supabase.from("bookings").delete().eq("id", id);
-      if (error) throw error;
+      const res = await fetch(`/api/booking?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
       setRefreshKey(k => k + 1);
     } catch (err) {
       console.error("Lỗi xóa:", err);

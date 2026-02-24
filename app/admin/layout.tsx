@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Admin – Tà Giang Ecolog",
+  title: "Admin – Tà Giang ecolodge",
 };
 
 // Layout gốc của /admin – không có sidebar
